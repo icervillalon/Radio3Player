@@ -522,6 +522,9 @@ class App:
     # ------------------------------------------------------------------
     def load_programs(self, force: bool = False):
         cached = None if force else self.store.cache_get("programas", PROGRAMS_TTL)
+        # Versiones anteriores guardaban botones de compartir como programas
+        if cached and any(rtve.is_share_title(d.get("title")) for d in cached):
+            cached = None
         if cached:
             self._set_programs([Program.from_dict(d) for d in cached])
             return
@@ -675,11 +678,15 @@ class App:
         self.web_btn.configure(state="disabled")
         eps = []
         for eid, r in self.store.in_progress():
+            prog = self.prog_by_slug.get(r.get("program_slug", ""))
+            ptitle = r.get("program_title", "")
+            if prog and (not ptitle or rtve.is_share_title(ptitle)):
+                ptitle = prog.title
             eps.append(Episode(
                 id=eid, title=r.get("title", ""), date=r.get("date", 0), duration=r.get("dur", 0),
                 description=r.get("description", ""), audio_url=r.get("audio_url", ""),
                 web_url=r.get("web_url", ""), program_slug=r.get("program_slug", ""),
-                program_title=r.get("program_title", ""),
+                program_title=ptitle,
             ))
         self._set_text(self.prog_desc, [("Episodios que dejaste a medias, del más reciente al más antiguo.", "muted")])
         self.total_pages = self.page = 1

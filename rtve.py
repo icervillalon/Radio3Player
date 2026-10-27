@@ -303,9 +303,16 @@ _TITLE_SUFFIX = re.compile(
 )
 
 
+def is_share_title(title: str | None) -> bool:
+    """Texto de los botones de compartir ("Compartir por Email"), no un programa."""
+    return bool(re.match(r"\s*compartir\b", title or "", re.I))
+
+
 def clean_title(title: str | None, slug: str = "") -> str:
     """'Ir a la página de "Turbo 3"' -> 'Turbo 3'."""
     raw = html.unescape(title or "").strip()
+    if is_share_title(raw):
+        raw = ""
     t = raw
     for _ in range(2):  # p. ej. "Ir a la página del programa 'X'"
         t = _TITLE_PREFIX.sub("", t, count=1).strip()
@@ -335,6 +342,11 @@ def parse_program_links(page_html: str) -> list[Program]:
         if not hm:
             continue
         href = urllib.parse.urljoin(BASE, html.unescape(hm.group(1) or hm.group(2) or ""))
+        # Los botones de compartir (mailto:, facebook, whatsapp…) acaban en la URL
+        # del programa pero no son enlaces a él: "Compartir por Email".
+        u = urllib.parse.urlparse(href)
+        if u.scheme not in ("http", "https") or not (u.hostname or "").endswith("rtve.es"):
+            continue
         slug = slug_from_url(href)
         if not slug or slug in NOT_PROGRAMS:
             continue
